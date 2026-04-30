@@ -34,6 +34,16 @@ function truncate(str, max = 120) {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
+function toTitleCaseLabel(value) {
+  const s = String(value || '').trim();
+  if (!s) return '—';
+  return s
+    .replace(/_/g, ' ')
+    .split(/\s+/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ''))
+    .join(' ');
+}
+
 function badgeForVisitType(type) {
   const t = String(type || '');
   if (!t) return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -83,6 +93,8 @@ export default function VisitsTimeline({
     record_received: false,
     bill_received: false,
   });
+
+  const [billingDraftLines, setBillingDraftLines] = useState([]);
 
   const fileInputRef = useRef(null);
 
@@ -147,10 +159,54 @@ export default function VisitsTimeline({
     }
   }, [authToken, caseId, base, apiPrefix]);
 
+  const fetchBillingDraftLines = useCallback(async () => {
+    if (!authToken || apiPrefix !== '/api') {
+      setBillingDraftLines([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${base}/api/cases/${caseId}/billing-lines?status=draft`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      setBillingDraftLines(Array.isArray(data.billing_lines) ? data.billing_lines : []);
+    } catch {
+      setBillingDraftLines([]);
+    }
+  }, [authToken, base, caseId, apiPrefix]);
+
   useEffect(() => {
     fetchVisits();
     fetchTimeline();
-  }, [fetchVisits, fetchTimeline]);
+    fetchBillingDraftLines();
+  }, [fetchVisits, fetchTimeline, fetchBillingDraftLines]);
+
+  const approveAndImportBilling = async (row) => {
+    try {
+      const patch = await fetch(`${base}/api/billing-lines/${row.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ case_id: caseId, status: 'approved' }),
+      });
+      const pData = await patch.json().catch(() => ({}));
+      if (!patch.ok) throw new Error(pData.error || 'Approve failed');
+      const imp = await fetch(`${base}/api/cases/${caseId}/billing-lines/${row.id}/import-to-visit`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const iData = await imp.json().catch(() => ({}));
+      if (!imp.ok) throw new Error(iData.error || iData.message || 'Import failed');
+      await fetchVisits();
+      await fetchTimeline();
+      await fetchBillingDraftLines();
+    } catch (e) {
+      alert(e.message || 'Failed');
+    }
+  };
 
   const openCreateModal = () => {
     setModalMode('create');
@@ -411,11 +467,11 @@ export default function VisitsTimeline({
                               : 'bg-gray-50 border-gray-200 text-gray-800'
                         }`}
                       >
-                        {entry.eventType}
+                        {toTitleCaseLabel(entry.eventType)}
                       </span>
                       {entry.providerType ? (
                         <span className="inline-flex items-center rounded-full border bg-gray-50 border-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700">
-                          {entry.providerType}
+                          {toTitleCaseLabel(entry.providerType)}
                         </span>
                       ) : null}
                     </div>
@@ -427,6 +483,32 @@ export default function VisitsTimeline({
           </div>
         </div>
       )}
+
+      {apiPrefix === '/api' && billingDraftLines.length > 0 ? (
+        <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-3 space-y-2">
+          <div className="text-sm font-semibold text-indigo-950">Draft billing from document AI</div>
+          <p className="text-xs text-indigo-900/90">
+            Approve and import into a medical visit row (also available under Extractions & AI).
+          </p>
+          <ul className="space-y-2">
+            {billingDraftLines.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 text-sm bg-white rounded-md px-2 py-2 ring-1 ring-indigo-100">
+                <span className="text-gray-800">
+                  {row.line_total != null ? `$${Number(row.line_total).toLocaleString()}` : '—'} ·{' '}
+                  {row.provider_name_raw || 'Provider'} · conf {row.confidence}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => approveAndImportBilling(row)}
+                  className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                >
+                  Approve & import to visit
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Visits table (always shown) */}
       <div className="bg-white rounded-lg overflow-hidden shadow-sm ring-1 ring-slate-100/90">

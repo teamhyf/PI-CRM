@@ -23,6 +23,7 @@ export default function CaseInjuriesTab({ caseId, injuries, onChanged }) {
   const [error, setError] = useState('');
   const [quickInput, setQuickInput] = useState('');
   const [listening, setListening] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
   const recognitionRef = useRef(null);
 
   const handleChange = (e) => {
@@ -96,6 +97,35 @@ export default function CaseInjuriesTab({ caseId, injuries, onChanged }) {
     setForm(parsed);
   };
 
+  const saveQuickInputAsDraftFindings = async () => {
+    const text = String(quickInput || '').trim();
+    if (!text) {
+      setError('Enter text in quick capture first.');
+      return;
+    }
+    setDraftSaving(true);
+    setError('');
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/cases/${caseId}/injuries/quick-capture`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to save draft findings');
+      setQuickInput('');
+      onChanged?.();
+    } catch (err) {
+      setError(err.message || 'Failed to save draft findings');
+    } finally {
+      setDraftSaving(false);
+    }
+  };
+
   const handleVoiceCapture = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -167,6 +197,14 @@ export default function CaseInjuriesTab({ caseId, injuries, onChanged }) {
             </button>
             <button
               type="button"
+              onClick={saveQuickInputAsDraftFindings}
+              disabled={draftSaving}
+              className="px-3 py-2 text-sm font-semibold rounded-md bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-50"
+            >
+              {draftSaving ? 'Saving…' : 'Save as draft findings'}
+            </button>
+            <button
+              type="button"
               onClick={handleVoiceCapture}
               className={`px-3 py-2 text-sm font-semibold rounded-md ${
                 listening ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-slate-200 text-slate-800 hover:bg-slate-300'
@@ -176,7 +214,8 @@ export default function CaseInjuriesTab({ caseId, injuries, onChanged }) {
             </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            This maps your statement into body part, symptom, severity, and notes. Review fields before saving.
+            Apply maps into the injury form below. Save as draft findings runs the same AI pipeline as document upload;
+            review and approve under Extractions &amp; AI.
           </p>
         </div>
 

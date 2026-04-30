@@ -63,6 +63,9 @@ export default function SettlementTab({
   const [demandPacketBlockers, setDemandPacketBlockers] = useState([]);
   const [demandPacketMeta, setDemandPacketMeta] = useState(null);
   const [demandPacketGuidance, setDemandPacketGuidance] = useState(null);
+  const [demandReadiness, setDemandReadiness] = useState(null);
+  const [demandReadinessLoading, setDemandReadinessLoading] = useState(false);
+  const [ackWorking, setAckWorking] = useState('');
 
   const [form, setForm] = useState({
     demand_status: 'not_started',
@@ -138,6 +141,53 @@ export default function SettlementTab({
     fetchSettlement();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, authToken, apiPrefix]);
+
+  const fetchDemandReadiness = async () => {
+    if (!authToken || !caseId || apiPrefix !== '/api') return;
+    setDemandReadinessLoading(true);
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/cases/${caseId}/demand-readiness`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setDemandReadiness(data);
+      else setDemandReadiness(null);
+    } catch {
+      setDemandReadiness(null);
+    } finally {
+      setDemandReadinessLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDemandReadiness();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, authToken, apiPrefix]);
+
+  const ackDemandSection = async (section) => {
+    if (!authToken || !caseId || readOnly) return;
+    setAckWorking(section);
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/cases/${caseId}/demand-readiness/ack`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ section }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Ack failed');
+      setDemandReadiness(data);
+      success('Acknowledged', `Section “${section}” marked reviewed for demand.`);
+    } catch (e) {
+      error(e.message || 'Ack failed');
+    } finally {
+      setAckWorking('');
+    }
+  };
 
   const createTracker = async () => {
     if (readOnly) return;
@@ -240,11 +290,17 @@ export default function SettlementTab({
     try {
       const base = getBaseUrl();
       const query = force ? '?force=1' : '';
+      let forceReason;
+      if (force) {
+        forceReason = window.prompt('Optional audit note for forced generation (shown in compliance log):', '') || '';
+      }
       const res = await fetch(`${base}${apiPrefix}/cases/${caseId}/demand-packet/generate${query}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${authToken}`,
+          ...(force ? { 'Content-Type': 'application/json' } : {}),
         },
+        ...(force ? { body: JSON.stringify({ forceReason: forceReason || undefined }) } : {}),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -274,6 +330,7 @@ export default function SettlementTab({
       }
 
       await fetchSettlement();
+      await fetchDemandReadiness();
       if (onChanged) await onChanged();
     } catch (e) {
       error(e.message || 'Failed to generate demand packet');
@@ -405,6 +462,46 @@ export default function SettlementTab({
                   <li key={`${b.code || 'blocker'}-${idx}`}>{b.message || 'Readiness blocker detected.'}</li>
                 ))}
               </ul>
+            </div>
+          ) : null}
+
+          {demandReadiness && apiPrefix === '/api' ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-2">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900">Pre-demand staff checklist</p>
+                  {demandReadinessLoading ? <span className="text-xs text-gray-500">Loading…</span> : null}
+                </div>
+                <p className="text-xs text-gray-600">
+                  Gate mode: <span className="font-semibold">{demandReadiness.mode || 'soft'}</span>
+                  {demandReadiness.mode === 'hard'
+                    ? ' — all sections must be acknowledged before generate (unless you force).'
+                    : ' — acknowledgments are tracked; set DEMAND_READINESS_GATE=hard on the server to enforce.'}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                {['injuries', 'specials', 'liability'].map((key) => {
+                  const sec = demandReadiness.sections?.[key] || {};
+                  return (
+                    <div key={key} className="rounded-md bg-white p-2 ring-1 ring-slate-100">
+                      <p className="font-medium text-gray-800 capitalize">{key}</p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Data: {sec.satisfied ? 'looks complete' : 'incomplete'} · Ack: {sec.acked ? 'yes' : 'no'}
+                      </p>
+                      {!readOnly ? (
+                        <button
+                          type="button"
+                          disabled={!!ackWorking}
+                          onClick={() => ackDemandSection(key)}
+                          className="mt-2 w-full rounded-md bg-slate-800 px-2 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                        >
+                          {ackWorking === key ? 'Saving…' : 'I reviewed this section'}
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : null}
 

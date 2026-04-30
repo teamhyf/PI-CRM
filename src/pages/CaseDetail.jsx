@@ -10,6 +10,7 @@ import CaseTimelineTab from '../components/CaseTimelineTab';
 import ReferralPanel from '../components/ReferralPanel';
 import ClaimDocumentBuilder from '../components/ClaimDocumentBuilder';
 import SettlementTab from '../components/SettlementTab';
+import CaseExtractionsTab from '../components/CaseExtractionsTab';
 import { LoadingBlock, LoadingInline } from '../components/LoadingSpinner';
 
 const getBaseUrl = () => {
@@ -293,6 +294,7 @@ export default function CaseDetail() {
     { id: 'treatment-routing', label: 'Treatment Routing' },
     { id: 'timeline', label: 'Timeline' },
     { id: 'documents', label: 'Documents' },
+    { id: 'extractions', label: 'Extractions & AI' },
     { id: 'red-flags', label: 'Red Flags' },
     { id: 'documentation-summary', label: 'Documentation Summary' },
     { id: 'settlement', label: 'Settlement' },
@@ -455,6 +457,7 @@ export default function CaseDetail() {
           )}
           {activeTab === 'timeline' && <CaseTimelineTab caseId={caseData.id} />}
           {activeTab === 'documents' && <CaseDocumentsTab caseId={caseData.id} />}
+          {activeTab === 'extractions' && <CaseExtractionsTab caseId={caseData.id} />}
           {activeTab === 'red-flags' && (
             <CaseRedFlagsTab caseId={caseData.id} flags={caseData.redFlags || []} />
           )}
