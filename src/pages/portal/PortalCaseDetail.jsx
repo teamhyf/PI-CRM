@@ -202,7 +202,15 @@ function statutePlanningReference(dateOfLoss) {
 
 function summarizeInjuriesFromRecords(injuries) {
   if (!Array.isArray(injuries) || injuries.length === 0) return '';
-  const fmt = (s) => (s == null ? '' : String(s).replace(/_/g, ' '));
+  const fmt = (s) => {
+    if (s == null) return '';
+    return String(s)
+      .replace(/_/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  };
   return injuries
     .map((i) => {
       const parts = [
