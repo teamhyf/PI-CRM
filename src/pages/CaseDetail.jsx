@@ -90,6 +90,10 @@ function CaseOverviewTab({ data, token, onChanged }) {
   const [insuranceSummary, setInsuranceSummary] = useState(null);
   const [insuranceLoading, setInsuranceLoading] = useState(false);
   const [insuranceError, setInsuranceError] = useState('');
+  const [jurisdictionState, setJurisdictionState] = useState(data?.jurisdiction_state || '');
+  const [jurisdictionSaving, setJurisdictionSaving] = useState(false);
+  const [jurisdictionError, setJurisdictionError] = useState('');
+  const [jurisdictionSuccess, setJurisdictionSuccess] = useState('');
   const [liabilityGenerating, setLiabilityGenerating] = useState(false);
   const [liabilityError, setLiabilityError] = useState('');
   const [liabilitySuccess, setLiabilitySuccess] = useState('');
@@ -122,6 +126,38 @@ function CaseOverviewTab({ data, token, onChanged }) {
     };
   }, [token, data?.id]);
 
+  useEffect(() => {
+    setJurisdictionState(data?.jurisdiction_state || '');
+  }, [data?.jurisdiction_state]);
+
+  const saveJurisdictionState = async () => {
+    if (!token || !data?.id || jurisdictionSaving) return;
+    setJurisdictionSaving(true);
+    setJurisdictionError('');
+    setJurisdictionSuccess('');
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/cases/${data.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jurisdiction_state: jurisdictionState.trim() || null }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to save jurisdiction state');
+      setJurisdictionSuccess('Jurisdiction state saved.');
+      if (typeof onChanged === 'function') {
+        await onChanged();
+      }
+    } catch (err) {
+      setJurisdictionError(err.message || 'Failed to save jurisdiction state');
+    } finally {
+      setJurisdictionSaving(false);
+    }
+  };
+
   const generateLiabilitySummary = async () => {
     if (!token || !data?.id || liabilityGenerating) return;
     setLiabilityGenerating(true);
@@ -151,7 +187,25 @@ function CaseOverviewTab({ data, token, onChanged }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700">Jurisdiction State</label>
-          <p className="text-gray-900 mt-1">{data.jurisdiction_state || 'Not set'}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={jurisdictionState}
+              onChange={(e) => setJurisdictionState(e.target.value)}
+              placeholder="e.g. California"
+              className="w-full max-w-xs rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            />
+            <button
+              type="button"
+              onClick={saveJurisdictionState}
+              disabled={jurisdictionSaving}
+              className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {jurisdictionSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+          {jurisdictionSuccess ? <p className="text-xs text-emerald-700 mt-1">{jurisdictionSuccess}</p> : null}
+          {jurisdictionError ? <p className="text-xs text-red-700 mt-1">{jurisdictionError}</p> : null}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Statute Deadline</label>
