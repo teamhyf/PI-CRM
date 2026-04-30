@@ -37,6 +37,14 @@ const referralStatusLabel = (value) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 
+const policyTypeLabel = (value) =>
+  String(value || '')
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
 const EMPTY_INJURY_FORM = () => ({
   bodyPart: 'neck',
   symptomType: 'pain',
@@ -2141,7 +2149,7 @@ export function PortalCaseDetail() {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-semibold text-gray-700 rounded-full px-2 py-0.5 bg-slate-100 ring-1 ring-slate-200/70">
-                                {String(p.policy_type || 'policy').replace(/_/g, ' ')}
+                                {policyTypeLabel(p.policy_type || 'policy')}
                               </span>
                               <span className={`text-[10px] font-bold rounded-full ring-1 px-2 py-0.5 ${getBandColor(band)}`}>
                                 {String(band).replace(/_/g, ' ').toUpperCase()}
