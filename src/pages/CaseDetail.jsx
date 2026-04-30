@@ -86,10 +86,13 @@ function summarizeInjuriesFromRecords(injuries) {
     .join('\n');
 }
 
-function CaseOverviewTab({ data, token }) {
+function CaseOverviewTab({ data, token, onChanged }) {
   const [insuranceSummary, setInsuranceSummary] = useState(null);
   const [insuranceLoading, setInsuranceLoading] = useState(false);
   const [insuranceError, setInsuranceError] = useState('');
+  const [liabilityGenerating, setLiabilityGenerating] = useState(false);
+  const [liabilityError, setLiabilityError] = useState('');
+  const [liabilitySuccess, setLiabilitySuccess] = useState('');
   const statuteRefDate = !data.statute_deadline ? statutePlanningReference(data.date_of_loss) : null;
 
   useEffect(() => {
@@ -118,6 +121,30 @@ function CaseOverviewTab({ data, token }) {
       cancelled = true;
     };
   }, [token, data?.id]);
+
+  const generateLiabilitySummary = async () => {
+    if (!token || !data?.id || liabilityGenerating) return;
+    setLiabilityGenerating(true);
+    setLiabilityError('');
+    setLiabilitySuccess('');
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/cases/${data.id}/claim-builder/accident-summary`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to generate liability summary');
+      setLiabilitySuccess('Liability summary generated.');
+      if (typeof onChanged === 'function') {
+        await onChanged();
+      }
+    } catch (err) {
+      setLiabilityError(err.message || 'Failed to generate liability summary');
+    } finally {
+      setLiabilityGenerating(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -179,10 +206,22 @@ function CaseOverviewTab({ data, token }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Liability Summary</label>
+        <div className="flex items-center justify-between gap-3">
+          <label className="block text-sm font-medium text-gray-700">Liability Summary</label>
+          <button
+            type="button"
+            onClick={generateLiabilitySummary}
+            disabled={liabilityGenerating}
+            className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+          >
+            {liabilityGenerating ? 'Generating…' : 'Generate Liability Summary'}
+          </button>
+        </div>
         <p className="text-gray-900 mt-1 whitespace-pre-wrap">
           {data.liability_summary || 'No summary'}
         </p>
+        {liabilitySuccess ? <p className="text-xs text-emerald-700 mt-2">{liabilitySuccess}</p> : null}
+        {liabilityError ? <p className="text-xs text-red-700 mt-2">{liabilityError}</p> : null}
       </div>
 
       <div>
@@ -438,7 +477,7 @@ export default function CaseDetail() {
         </aside>
 
         <div className="min-w-0 flex-1 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/55">
-          {activeTab === 'overview' && <CaseOverviewTab data={caseData} token={token} />}
+          {activeTab === 'overview' && <CaseOverviewTab data={caseData} token={token} onChanged={fetchCaseDetail} />}
           {activeTab === 'participants' && (
             <CaseParticipantsTab
               caseId={caseData.id}
