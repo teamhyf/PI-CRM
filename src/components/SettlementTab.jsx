@@ -37,6 +37,13 @@ function parseMaybeJson(val) {
   return val;
 }
 
+function formatMaybeDateTime(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString();
+}
+
 export default function SettlementTab({
   caseId,
   onChanged,
@@ -482,20 +489,28 @@ export default function SettlementTab({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
                 {['injuries', 'specials', 'liability'].map((key) => {
                   const sec = demandReadiness.sections?.[key] || {};
+                  const reviewedAt = formatMaybeDateTime(sec.reviewed_at);
                   return (
                     <div key={key} className="rounded-md bg-white p-2 ring-1 ring-slate-100">
                       <p className="font-medium text-gray-800 capitalize">{key}</p>
                       <p className="text-xs text-gray-600 mt-1">
                         Data: {sec.satisfied ? 'looks complete' : 'incomplete'} · Ack: {sec.acked ? 'yes' : 'no'}
                       </p>
+                      {sec.acked && reviewedAt ? (
+                        <p className="text-[11px] text-emerald-700 mt-1">Reviewed: {reviewedAt}</p>
+                      ) : null}
                       {!readOnly ? (
                         <button
                           type="button"
-                          disabled={!!ackWorking}
+                          disabled={!!ackWorking || !!sec.acked}
                           onClick={() => ackDemandSection(key)}
-                          className="mt-2 w-full rounded-md bg-slate-800 px-2 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                          className={`mt-2 w-full rounded-md px-2 py-1.5 text-xs font-semibold text-white disabled:opacity-50 ${
+                            sec.acked
+                              ? 'bg-emerald-600 cursor-not-allowed'
+                              : 'bg-slate-800 hover:bg-slate-700'
+                          }`}
                         >
-                          {ackWorking === key ? 'Saving…' : 'I reviewed this section'}
+                          {ackWorking === key ? 'Saving…' : sec.acked ? 'Reviewed' : 'Mark as Reviewed'}
                         </button>
                       ) : null}
                     </div>
