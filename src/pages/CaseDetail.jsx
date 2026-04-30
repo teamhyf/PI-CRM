@@ -43,6 +43,16 @@ const CASE_STATUS_OPTIONS = [
   { value: 'closed', label: 'Closed' },
 ];
 
+const US_JURISDICTION_OPTIONS = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+  'District of Columbia', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
+  'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon',
+  'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah',
+  'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
+];
+
 function statusPillClass(status) {
   const s =
     typeof status === 'string' && status.trim() ? status.trim().toLowerCase() : 'new';
@@ -188,13 +198,18 @@ function CaseOverviewTab({ data, token, onChanged }) {
         <div>
           <label className="block text-sm font-medium text-gray-700">Jurisdiction State</label>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <input
-              type="text"
+            <select
               value={jurisdictionState}
               onChange={(e) => setJurisdictionState(e.target.value)}
-              placeholder="e.g. California"
               className="w-full max-w-xs rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
-            />
+            >
+              <option value="">Select state</option>
+              {US_JURISDICTION_OPTIONS.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={saveJurisdictionState}
