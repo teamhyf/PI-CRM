@@ -16,6 +16,26 @@ function getRiskBarStyle(riskScore) {
   return { colorClass: 'bg-red-600', labelClass: 'text-red-700' };
 }
 
+const FLAG_TYPE_LABELS = {
+  missing_docs: 'Missing Document',
+  inconsistent_dates: 'Inconsistent Dates',
+  treatment_gap: 'Treatment Gap',
+  coverage_gap: 'Coverage Gap',
+  low_policy_limit: 'Low Policy Limit',
+};
+
+function formatFlagTypeLabel(flagType) {
+  const key = String(flagType || '').trim().toLowerCase();
+  if (!key) return 'Flag';
+  if (FLAG_TYPE_LABELS[key]) return FLAG_TYPE_LABELS[key];
+  return key
+    .replace(/_/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export default function CaseRedFlagsTab({
   caseId,
   apiPrefix = '/api',
@@ -148,7 +168,7 @@ export default function CaseRedFlagsTab({
                         <div>
                           <div className="flex items-center gap-2">
                             <RedFlagBadge severity={flag.severity} />
-                            <div className="text-sm font-semibold text-gray-900">{flag.flag_type}</div>
+                            <div className="text-sm font-semibold text-gray-900">{formatFlagTypeLabel(flag.flag_type)}</div>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             {flag.detected_at ? new Date(flag.detected_at).toLocaleString() : '—'} •{' '}
@@ -199,7 +219,7 @@ export default function CaseRedFlagsTab({
                   >
                     <div className="flex items-center gap-2">
                       <RedFlagBadge severity={flag.severity} />
-                      <div className="text-sm font-semibold text-gray-900">{flag.flag_type}</div>
+                      <div className="text-sm font-semibold text-gray-900">{formatFlagTypeLabel(flag.flag_type)}</div>
                     </div>
                     <div className="text-xs text-gray-500">
                       {flag.detected_at ? new Date(flag.detected_at).toLocaleString() : '—'} • RESOLVED
